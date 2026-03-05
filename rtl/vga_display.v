@@ -1,167 +1,209 @@
-// vga_display.v — Gerador de pixels RGB
-//
-// Modos (btn_mode para alternar):
-//   00 = Bouncing Box
-//   01 = Checkerboard 32x32
-//   10 = Mira de calibracao (crosshair + grid)
-//   11 = Barras de cor SMPTE
+module vga_display                                               
+(
+    input  wire        clk,                                          // Clock de 25 MHz (pixel clock do VGA)
+    input  wire        reset,                                        // Reset assíncrono do sistema
+    input  wire [9:0]  hsinc,                                        // Coordenada horizontal atual (0–799 incluindo porches)
+    input  wire [9:0]  vsinc,                                        // Coordenada vertical atual (0–524 incluindo porches)
+    input  wire        area_visivel,                                 // Indica se estamos dentro da área visível (640x480)
 
-module vga_display (
-    input  wire        clk_pixel,
-    input  wire        rst,
-    input  wire [9:0]  pixel_x,
-    input  wire [9:0]  pixel_y,
-    input  wire        video_on,
-    input  wire        frame_end,
-    input  wire        btn_mode,
-    input  wire        btn_pause,
-    input  wire        btn_speed,
-    input  wire        btn_color,
-    output reg  [7:0]  r,
-    output reg  [7:0]  g,
-    output reg  [7:0]  b
+    input  wire        botao_cor_tela,                               // Botão para alternar a cor do fundo
+    input  wire        botao_cor_quadrado,                           // Botão para alternar a cor do quadrado
+    input  wire        botao_modo,                                   // Botão para alternar o modo da FSM
+
+    output reg  [3:0]  R,                                            // Saída do canal vermelho (4 bits)
+    output reg  [3:0]  G,                                            // Saída do canal verde (4 bits)
+    output reg  [3:0]  B                                             // Saída do canal azul (4 bits)
 );
 
-localparam SCREEN_W = 640;
-localparam SCREEN_H = 480;
+    parameter largura_de_tela     = 640;                             // Largura da área visível
+    parameter altura_de_tela      = 480;                             // Altura da área visível
+    parameter tamanho_do_quadrado = 50;                              // Tamanho do quadrado móvel
 
-// Deteccao de borda dos botoes (rising edge)
-reg btn_mode_prev, btn_pause_prev, btn_speed_prev, btn_color_prev;
-wire mode_edge  = btn_mode  & ~btn_mode_prev;
-wire pause_edge = btn_pause & ~btn_pause_prev;
-wire speed_edge = btn_speed & ~btn_speed_prev;
-wire color_edge = btn_color & ~btn_color_prev;
+    parameter modo_quadrado = 2'd0;                                  // Estado 0 → Exibe quadrado móvel
+    parameter modo_mira     = 2'd1;                                  // Estado 1 → Exibe mira central
+    parameter modo_xadrez  = 2'd2;                                   // Estado 2 → Exibe padrão xadrez
 
-always @(posedge clk_pixel or posedge rst) begin
-    if (rst) begin
-        btn_mode_prev  <= 0; btn_pause_prev <= 0;
-        btn_speed_prev <= 0; btn_color_prev <= 0;
-    end else begin
-        btn_mode_prev  <= btn_mode;  btn_pause_prev <= btn_pause;
-        btn_speed_prev <= btn_speed; btn_color_prev <= btn_color;
+    reg [1:0] modo_atual;                                            // Registrador que armazena o estado atual
+
+    reg bt_m1;                                                       // Primeiro flip-flop de sincronização do botão modo
+    reg bt_m2;                                                       // Segundo flip-flop de sincronização do botão modo
+    wire bt_m_subida;                                                // Pulso de borda de subida do botão modo
+
+    reg [9:0] pos_hsinc;                                             // Posição horizontal atual do quadrado
+    reg [9:0] pos_vsinc;                                             // Posição vertical atual do quadrado
+
+    reg signed [3:0] vel_hsinc;                                      // Velocidade horizontal (-8 a +7)
+    reg signed [3:0] vel_vsinc;                                      // Velocidade vertical (-8 a +7)
+
+    reg [1:0] cor_quadrado;                                          // Seleção de cor do quadrado (0 a 3)
+    reg [1:0] cor_fundo_tela;                                        // Seleção de cor do fundo (0 a 3)
+
+    reg bt_f1;                                                       // Primeiro flip-flop botão fundo
+    reg bt_f2;                                                       // Segundo flip-flop botão fundo
+    reg bt_q1;                                                       // Primeiro flip-flop botão quadrado
+    reg bt_q2;                                                       // Segundo flip-flop botão quadrado
+
+    wire bt_f_subida;                                                // Detecta borda de subida botão fundo
+    wire bt_q_subida;                                                // Detecta borda de subida botão quadrado
+
+    always @(posedge clk)                                            // Sincroniza todos os botões ao clock
+    begin
+        bt_f1 <= botao_cor_tela;                                     // Primeiro estágio botão fundo
+        bt_f2 <= bt_f1;                                              // Segundo estágio botão fundo
+
+        bt_q1 <= botao_cor_quadrado;                                 // Primeiro estágio botão quadrado
+        bt_q2 <= bt_q1;                                              // Segundo estágio botão quadrado
+
+        bt_m1 <= botao_modo;                                         // Primeiro estágio botão modo
+        bt_m2 <= bt_m1;                                              // Segundo estágio botão modo
     end
-end
 
-// Estado global
-reg [1:0] display_mode;
-reg       paused, fast_mode;
-reg [1:0] color_sel;
+    assign bt_f_subida = bt_f1 & ~bt_f2;                             // Gera pulso de 1 clock na borda de subida fundo
+    assign bt_q_subida = bt_q1 & ~bt_q2;                             // Gera pulso de 1 clock na borda de subida quadrado
+    assign bt_m_subida = bt_m1 & ~bt_m2;                             // Gera pulso de 1 clock na borda de subida modo
 
-always @(posedge clk_pixel or posedge rst) begin
-    if (rst) begin
-        display_mode <= 0; paused <= 0; fast_mode <= 0; color_sel <= 0;
-    end else begin
-        if (mode_edge)  display_mode <= display_mode + 1;
-        if (pause_edge) paused       <= ~paused;
-        if (speed_edge) fast_mode    <= ~fast_mode;
-        if (color_edge) color_sel    <= color_sel + 1;
-    end
-end
+    wire fim_frame;                                                  // Indica último pixel do frame completo
+    assign fim_frame = (hsinc == 10'd799) && (vsinc == 10'd524);     // Ativo no último pixel incluindo porches
 
-// --- Modo 00: Bouncing Box ---
-localparam BOX_SIZE = 40;
-reg [9:0] box_x, box_y;
-reg       dir_x, dir_y;
-wire [2:0] speed = fast_mode ? 3'd4 : 3'd2;
+    wire dentro_horizontal;                                          // Verifica se pixel está dentro da faixa horizontal
+    assign dentro_horizontal =
+        (hsinc >= pos_hsinc) &&                                      // Pixel maior ou igual à borda esquerda
+        (hsinc <  pos_hsinc + tamanho_do_quadrado);                  // Pixel menor que borda direita
 
-always @(posedge clk_pixel or posedge rst) begin
-    if (rst) begin
-        box_x <= 100; box_y <= 80; dir_x <= 0; dir_y <= 0;
-    end else if (frame_end && !paused) begin
-        if (!dir_x) begin
-            if (box_x + BOX_SIZE + speed >= SCREEN_W) begin dir_x <= 1; box_x <= SCREEN_W - BOX_SIZE - 1; end
-            else box_x <= box_x + {7'd0, speed};
-        end else begin
-            if (box_x < {7'd0, speed}) begin dir_x <= 0; box_x <= 0; end
-            else box_x <= box_x - {7'd0, speed};
+    wire dentro_vertical;                                            // Verifica se pixel está dentro da faixa vertical
+    assign dentro_vertical =
+        (vsinc >= pos_vsinc) &&                                      // Pixel maior ou igual à borda superior
+        (vsinc <  pos_vsinc + tamanho_do_quadrado);                  // Pixel menor que borda inferior
+
+    wire formacao_quadrado;                                          // Indica se pixel pertence ao quadrado
+    assign formacao_quadrado = dentro_horizontal && dentro_vertical; // AND lógico das duas direções
+
+    always @(posedge clk or posedge reset)                           // Bloco síncrono com reset assíncrono
+    begin
+        if (reset== 1'b1)                                            // Se reset ativado
+        begin
+            pos_hsinc      <= 10'd200;                               // Inicializa posição horizontal
+            pos_vsinc      <= 10'd150;                               // Inicializa posição vertical
+            vel_hsinc      <= 4'sd1;                                 // Velocidade inicial horizontal
+            vel_vsinc      <= 4'sd1;                                 // Velocidade inicial vertical
+            cor_quadrado   <= 2'd0;                                  // Cor inicial quadrado
+            cor_fundo_tela <= 2'd0;                                  // Cor inicial fundo
+            modo_atual     <= modo_quadrado;                         // Estado inicial da FSM
+
+            R <= 0;                                                  // Inicializa canal vermelho
+            G <= 0;                                                  // Inicializa canal verde
+            B <= 0;                                                  // Inicializa canal azul
         end
-        if (!dir_y) begin
-            if (box_y + BOX_SIZE + speed >= SCREEN_H) begin dir_y <= 1; box_y <= SCREEN_H - BOX_SIZE - 1; end
-            else box_y <= box_y + {7'd0, speed};
-        end else begin
-            if (box_y < {7'd0, speed}) begin dir_y <= 0; box_y <= 0; end
-            else box_y <= box_y - {7'd0, speed};
+        else                                                         
+        begin
+
+            if (bt_m_subida== 1'b1)                                   // Se botão modo pressionado
+            begin
+                if (modo_atual == modo_xadrez)                       // Se estiver no último modo
+                    modo_atual <=modo_quadrado;                     // Retorna ao primeiro
+                else
+                    modo_atual <= modo_atual + 1'b1;               // Avança para próximo modo
+            end
+
+            if (fim_frame == 1'b1)                                    // Atualiza apenas no fim do frame
+            begin
+                pos_hsinc <= pos_hsinc + vel_hsinc;                  // Atualiza posição horizontal
+                pos_vsinc <= pos_vsinc + vel_vsinc;                  // Atualiza posição vertical
+
+                if (pos_hsinc <= 0)                                  // Colisão borda esquerda
+                    vel_hsinc <= 4'sd1;                              // Inverte para direita
+                else if (pos_hsinc + tamanho_do_quadrado >= largura_de_tela)
+                    vel_hsinc <= -4'sd1;                             // Inverte para esquerda
+
+                if (pos_vsinc <= 0)                                  // Colisão borda superior
+                    vel_vsinc <= 4'sd1;                              // Inverte para baixo
+                else if (pos_vsinc + tamanho_do_quadrado >= altura_de_tela)
+                    vel_vsinc <= -4'sd1;                             // Inverte para cima
+            end
+
+
+
+            if (bt_f_subida== 1'b1)                                         // Se botão fundo pressionado
+                cor_fundo_tela <= cor_fundo_tela + 1'b1;             // Incrementa seleção
+
+            if (bt_q_subida== 1'b1)                                         // Se botão quadrado pressionado
+                cor_quadrado <= cor_quadrado + 1'b1;                 // Incrementa seleção
+
+
+
+            if (area_visivel == 1'b0)                                       // Fora da área visível
+            begin
+                R <= 0;                                              // Preto
+                G <= 0;                                              // Preto
+                B <= 0;                                              // Preto
+            end
+            else
+            begin
+                case (modo_atual)                                    // Seleciona comportamento por estado
+
+                    modo_quadrado:                                   // Estado quadrado
+                    begin
+                        if (formacao_quadrado== 1'b1)                       // Se pixel pertence ao quadrado
+                        begin
+                            case (cor_quadrado)                      // Seleciona cor
+                                2'd0: begin R <= 4'hF; G <= 0;    B <= 0;    end
+                                2'd1: begin R <= 0;    G <= 4'hF; B <= 0;    end
+                                2'd2: begin R <= 0;    G <= 0;    B <= 4'hF; end
+                                2'd3: begin R <= 4'hF; G <= 4'hF; B <= 0;    end
+                            endcase
+                        end
+                        else
+                        begin
+                            case (cor_fundo_tela)                    // Cor do fundo
+                                2'd0: begin R <= 0;    G <= 0;    B <= 0;    end
+                                2'd1: begin R <= 0;    G <= 4'hF; B <= 4'hF; end
+                                2'd2: begin R <= 4'hF; G <= 0;    B <= 4'hF; end
+                                2'd3: begin R <= 4'h8; G <= 4'h8; B <= 4'h8; end
+                            endcase
+                        end
+                    end
+
+                    modo_mira:                                       // Estado mira
+                    begin
+                        if (hsinc == 320 || vsinc == 240)            // Linha vertical ou horizontal central faz uma cuz
+                        begin
+                            R <= 4'hF;                               // Branco
+                            G <= 4'hF;
+                            B <= 4'hF;
+                        end
+                        else
+                        begin
+                            R <= 0;                                  // Preto
+                            G <= 0;
+                            B <= 0;
+                        end
+                    end
+
+                    modo_xadrez:                                     // Estado xadrez
+                    begin
+                        if (hsinc[5] ^ vsinc[5])                     // Alternância usando XOR de bits
+                        begin
+                            R <= 4'hF;                               // Branco
+                            G <= 4'hF;
+                            B <= 4'hF;
+                        end
+                        else
+                        begin
+                            R <= 0;                                  // Preto
+                            G <= 0;
+                            B <= 0;
+                        end
+                    end
+
+                    default:
+                            begin
+                                R <= 0;                              // Preto
+                                G <= 0;
+                                B <= 0;
+                            end
+                endcase
+            end
         end
     end
-end
 
-wire in_box = (pixel_x >= box_x) && (pixel_x < box_x + BOX_SIZE) &&
-              (pixel_y >= box_y) && (pixel_y < box_y + BOX_SIZE);
-wire in_box_border = in_box && (
-    (pixel_x < box_x + 2) || (pixel_x >= box_x + BOX_SIZE - 2) ||
-    (pixel_y < box_y + 2) || (pixel_y >= box_y + BOX_SIZE - 2));
-
-reg [7:0] box_r, box_g, box_b;
-always @(*) begin
-    case (color_sel)
-        2'b00: begin box_r = 8'h00; box_g = 8'hFF; box_b = 8'hFF; end
-        2'b01: begin box_r = 8'h00; box_g = 8'hFF; box_b = 8'h00; end
-        2'b10: begin box_r = 8'hFF; box_g = 8'h00; box_b = 8'hFF; end
-        2'b11: begin box_r = 8'hFF; box_g = 8'hFF; box_b = 8'h00; end
-    endcase
-end
-
-reg [7:0] bounce_r, bounce_g, bounce_b;
-always @(*) begin
-    if (in_box_border)     begin bounce_r = 8'hFF; bounce_g = 8'hFF; bounce_b = 8'hFF; end
-    else if (in_box)       begin bounce_r = box_r;  bounce_g = box_g;  bounce_b = box_b;  end
-    else begin
-        bounce_r = 8'h08; bounce_g = 8'h08;
-        bounce_b = {2'b00, pixel_y[8:3]};
-    end
-end
-
-// --- Modo 01: Checkerboard ---
-wire check_pat = pixel_x[5] ^ pixel_y[5];
-wire [7:0] check_r = check_pat ? 8'hFF : 8'h00;
-wire [7:0] check_g = check_pat ? 8'hFF : 8'h00;
-wire [7:0] check_b = check_pat ? 8'hFF : 8'h00;
-
-// --- Modo 10: Mira ---
-wire cross_h     = (pixel_y >= 238) && (pixel_y <= 241);
-wire cross_v     = (pixel_x >= 318) && (pixel_x <= 321);
-wire border_px   = (pixel_x == 0) || (pixel_x == SCREEN_W-1) ||
-                   (pixel_y == 0) || (pixel_y == SCREEN_H-1);
-wire grid_h      = (pixel_x % 80 == 0);
-wire grid_v      = (pixel_y % 80 == 0);
-wire signed [10:0] dx = pixel_x - 320;
-wire signed [10:0] dy = pixel_y - 240;
-wire [21:0] dist_sq = dx*dx + dy*dy;
-wire circle = (dist_sq >= 22'd3481) && (dist_sq <= 22'd3721);
-
-reg [7:0] mira_r, mira_g, mira_b;
-always @(*) begin
-    if      (cross_h || cross_v) begin mira_r = 8'hFF; mira_g = 8'h00; mira_b = 8'h00; end
-    else if (circle)             begin mira_r = 8'hFF; mira_g = 8'hFF; mira_b = 8'h00; end
-    else if (border_px)          begin mira_r = 8'hFF; mira_g = 8'hFF; mira_b = 8'hFF; end
-    else if (grid_h || grid_v)   begin mira_r = 8'h40; mira_g = 8'h40; mira_b = 8'h40; end
-    else                         begin mira_r = 8'h00; mira_g = 8'h00; mira_b = 8'h00; end
-end
-
-// --- Modo 11: Barras de cor ---
-reg [7:0] bar_r, bar_g, bar_b;
-always @(*) begin
-    case (pixel_x / 80)
-        0: begin bar_r=8'hFF; bar_g=8'hFF; bar_b=8'hFF; end
-        1: begin bar_r=8'hFF; bar_g=8'hFF; bar_b=8'h00; end
-        2: begin bar_r=8'h00; bar_g=8'hFF; bar_b=8'hFF; end
-        3: begin bar_r=8'h00; bar_g=8'hFF; bar_b=8'h00; end
-        4: begin bar_r=8'hFF; bar_g=8'h00; bar_b=8'hFF; end
-        5: begin bar_r=8'hFF; bar_g=8'h00; bar_b=8'h00; end
-        6: begin bar_r=8'h00; bar_g=8'h00; bar_b=8'hFF; end
-        default: begin bar_r=8'h00; bar_g=8'h00; bar_b=8'h00; end
-    endcase
-end
-
-// --- Mux de saida ---
-always @(*) begin
-    if (!video_on) begin r = 0; g = 0; b = 0; end
-    else case (display_mode)
-        2'b00: begin r = bounce_r; g = bounce_g; b = bounce_b; end
-        2'b01: begin r = check_r;  g = check_g;  b = check_b;  end
-        2'b10: begin r = mira_r;   g = mira_g;   b = mira_b;   end
-        2'b11: begin r = bar_r;    g = bar_g;     b = bar_b;    end
-    endcase
-end
-
-endmodule
+endmodule                                                           // Fim do módulo
