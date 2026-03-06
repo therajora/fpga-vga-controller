@@ -6,13 +6,13 @@ O padrão VESA exige um **pixel clock de 25,175 MHz** para a resolução 640×48
 
 ```{mermaid}
 flowchart LR
-    IN["50 MHz<br/>(inclk0)"] --> DIV_N["÷ N<br/>(N = 3)"]
-    DIV_N --> PFD["Detector<br/>de Fase"]
-    PFD --> LPF["Filtro"]
-    LPF --> VCO["VCO<br/>≈ 1183 MHz"]
-    VCO --> DIV_C["÷ C0<br/>(C0 = 47)"]
-    DIV_C --> OUT["25.177 MHz<br/>(pixel clock)"]
-    VCO --> DIV_M["÷ M<br/>(M = 71)"]
+    IN["50 MHz (inclk0)"] --> DIV_N["Divisor N (N=3)"]
+    DIV_N --> PFD["Detector de Fase"]
+    PFD --> LPF["Filtro LPF"]
+    LPF --> VCO["VCO (1183 MHz)"]
+    VCO --> DIV_C["Divisor C0 (C0=47)"]
+    DIV_C --> OUT["25.177 MHz (pixel clock)"]
+    VCO --> DIV_M["Divisor M (M=71)"]
     DIV_M --> PFD
 ```
 

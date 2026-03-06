@@ -26,20 +26,33 @@ Implementação de um controlador VGA **640×480 @ 60 Hz** na FPGA **Altera Cycl
 ## Desafios Técnicos
 
 ```{mermaid}
-mindmap
-  root((Desafios))
-    Temporização
-      Pixel clock preciso
-      Tolerância VESA ±0.5%
-      Sincronismo H/V
-    Hardware
-      Limites do PLL Cyclone III
-      Pino nCEO K22
-      RAM limitada a 504Kbit
-    Implementação
-      Variável única por always
-      Debounce de botões
-      Anti-tearing via VBlank
+graph TD
+    %% Estilo Global Sóbrio
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px,color:#000;
+    classDef root fill:#e0e0e0,stroke:#000,stroke-width:2px,font-weight:bold;
+    classDef cat fill:#ffffff,stroke:#666,stroke-width:1px,font-weight:bold;
+
+    ROOT((Desafios)):::root
+
+    %% Categorias
+    ROOT --> TEMP[Temporização]:::cat
+    ROOT --> HARD[Hardware]:::cat
+    ROOT --> IMPL[Implementação]:::cat
+
+    %% Detalhes Temporização
+    TEMP --> T1[Pixel clock preciso]
+    TEMP --> T2[Tolerância VESA ±0.5%]
+    TEMP --> T3[Sincronismo H/V]
+
+    %% Detalhes Hardware
+    HARD --> H1[Limites do PLL Cyclone III]
+    HARD --> H2[Pino nCEO K22]
+    HARD --> H3[RAM limitada a 504Kbit]
+
+    %% Detalhes Implementação
+    IMPL --> I1[Variável única por always]
+    IMPL --> I2[Debounce de botões]
+    IMPL --> I3[Anti-tearing via VBlank]
 ```
 
 - **Precisão do PLL**: O valor exato 25,175 MHz não é atingível diretamente — a fração ideal 1007/2000 excede os limites dos contadores (máx. 512). A melhor aproximação foi **71/141**, resultando em 25,177 MHz (erro de 0,005%).

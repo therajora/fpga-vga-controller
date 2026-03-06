@@ -1,13 +1,13 @@
 # Makefile — fpga-vga-controller
 #
 # Targets:
-#   make test    → checks automaticos VESA (13 testes)
-#   make wave    → gera VCD e abre no GTKWave
-#   make sdl     → compila simulador SDL2 (Verilator)
-#   make run     → compila e abre janela SDL2
-#   make clean   → remove artefatos de build
+#   make test    → runs Verilog testbench (tb_vga_top)
+#   make wave    → generates VCD and opens in GTKWave
+#   make sdl     → compiles SDL2 simulator (Verilator)
+#   make run     → runs SDL2 simulator
+#   make clean   → removes build artifacts
 #
-# Pre-requisitos:
+# Prerequisites:
 #   sudo apt install iverilog gtkwave verilator g++ libsdl2-dev
 
 RTL_DIR = rtl
@@ -18,13 +18,12 @@ OBJ_DIR = obj_dir
 IVERILOG = iverilog
 VVP      = vvp
 
-RTL_SYNC = $(RTL_DIR)/clock.v
-RTL_SRC  = $(RTL_DIR)/clock_div.v \
-           $(RTL_DIR)/debounce.v \
-           $(RTL_DIR)/clock.v \
+# RTL Source Files
+RTL_SRC  = $(RTL_DIR)/vga_sync.v \
            $(RTL_DIR)/vga_display.v \
            $(RTL_DIR)/vga_top.v
 
+# Top module name for Verilator
 TOP_MODULE = vga_top
 SDL_BIN    = $(OBJ_DIR)/V$(TOP_MODULE)_sdl
 
@@ -33,11 +32,11 @@ SDL_BIN    = $(OBJ_DIR)/V$(TOP_MODULE)_sdl
 all: test
 
 test:
-	$(IVERILOG) -o $(SIM_DIR)/tb_clock.vvp $(TB_DIR)/tb_clock.v $(RTL_SYNC)
-	cd $(SIM_DIR) && $(VVP) tb_clock.vvp
+	$(IVERILOG) -o $(SIM_DIR)/tb_vga_top.vvp $(TB_DIR)/tb_vga_top.v $(RTL_SRC)
+	cd $(SIM_DIR) && $(VVP) tb_vga_top.vvp
 
 wave: test
-	gtkwave $(SIM_DIR)/tb_clock.vcd &
+	gtkwave $(SIM_DIR)/tb_vga_top.vcd &
 
 sdl: $(SDL_BIN)
 

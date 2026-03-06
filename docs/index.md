@@ -4,11 +4,11 @@ Documentação técnica do projeto de um **controlador VGA 640×480 @ 60 Hz** im
 
 ```{mermaid}
 flowchart LR
-    CLK50["Clock 50 MHz"] --> PLL["PLL"]
-    PLL -->|25.175 MHz| SYNC["vga_sync"]
-    SYNC -->|pixel_x, pixel_y| DISP["vga_display"]
-    BTN["Botões"] --> DISP
-    DISP -->|RGB 12-bit| VGA["Monitor VGA"]
+    CLK50["🔲 Clock 50 MHz"] --> PLL["⚙️ PLL"]
+    PLL -->|25.175 MHz| SYNC["📐 vga_sync"]
+    SYNC -->|pixel_x, pixel_y| DISP["🎨 vga_display"]
+    BTN["🔘 Botões"] --> DISP
+    DISP -->|RGB 12-bit| VGA["🖥️ Monitor VGA"]
     SYNC -->|hsync, vsync| VGA
 ```
 
@@ -22,6 +22,8 @@ arquitetura
 pll
 sincronismo
 exibicao
+simulacao
+rtl_modules
 resultados
 ```
 

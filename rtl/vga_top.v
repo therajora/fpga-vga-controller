@@ -1,13 +1,10 @@
-// `include "vga_display.v"
-// `include "vga_sync.v"
-
 module vga_top (
     input  wire clk,                // 25 MHz
     input  wire reset,
 
-    input  wire botao_cor_tela,
-    input  wire botao_cor_quadrado,
-    input  wire botao_modo,
+    input  wire btn_color_bg,       // Botão cor de fundo
+    input  wire btn_color_sq,       // Botão cor do quadrado
+    input  wire btn_mode,           // Botão de modo
 
     output wire hsync,
     output wire vsync,
@@ -20,7 +17,7 @@ module vga_top (
     // Sinais internos de conexão
     wire [9:0] pixel_x;
     wire [9:0] pixel_y;
-    wire       display;
+    wire       video_on;
 
     // Instância do sincronismo
     vga_sync sync_inst (
@@ -28,7 +25,7 @@ module vga_top (
         .rst(reset),
         .hsync(hsync),
         .vsync(vsync),
-        .display(display),
+        .display(video_on),
         .pixel_x(pixel_x),
         .pixel_y(pixel_y)
     );
@@ -37,13 +34,13 @@ module vga_top (
     vga_display display_inst (
         .clk(clk),
         .reset(reset),
-        .hsinc(pixel_x),
-        .vsinc(pixel_y),
-        .area_visivel(display),
+        .pixel_x(pixel_x),
+        .pixel_y(pixel_y),
+        .video_on(video_on),
 
-        .botao_cor_tela(botao_cor_tela),
-        .botao_cor_quadrado(botao_cor_quadrado),
-        .botao_modo(botao_modo),
+        .btn_color_bg(btn_color_bg),
+        .btn_color_sq(btn_color_sq),
+        .btn_mode(btn_mode),
 
         .R(R),
         .G(G),

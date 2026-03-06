@@ -8,6 +8,7 @@ release = "1.0"
 extensions = [
     "myst_parser",
     "sphinxcontrib.mermaid",
+    "sphinx_copybutton",
 ]
 
 myst_enable_extensions = [
@@ -27,9 +28,23 @@ html_theme = "furo"
 html_title = "Controlador VGA em FPGA"
 html_static_path = ["_static"]
 
+html_js_files = [
+    "js/svg-pan-zoom.min.js",
+    "js/mermaid-zoom.js",
+]
+
 html_theme_options = {
     "sidebar_hide_name": False,
     "navigation_with_keys": True,
+    "light_css_variables": {
+        "color-sidebar-link-text": "black",
+        "color-sidebar-link-text--top-level": "black",
+    },
+    "dark_css_variables": {
+        "color-sidebar-link-text": "white",
+        "color-sidebar-link-text--top-level": "white",
+    },
 }
 
 # -- Mermaid -------------------------------------------------------------------
+mermaid_version = "10.9.0"

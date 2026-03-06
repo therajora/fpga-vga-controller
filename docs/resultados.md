@@ -8,15 +8,15 @@ A validação foi realizada via **testbench automatizado** (simulação RTL), co
 
 | Parâmetro | Valor Medido | Erro (%) | Status |
 |---|---|---|---|
-| **Pixel clock** | 25,176 MHz | 0,005% | OK |
-| H — Visible Area | 25.420,80 ns | 0,005% | OK |
-| H — Front Porch | 635,52 ns | 0,000% | OK |
-| H — Sync Pulse | 3.813,12 ns | 0,000% | OK |
-| H — Back Porch | 1.906,56 ns | 0,000% | OK |
-| V — Visible Area | 15.252,48 µs | 0,006% | OK |
-| V — Front Porch | 317,76 µs | 0,006% | OK |
-| V — Sync Pulse | 1,00 ms | 0,000% | OK |
-| V — Back Porch | 1.048,56 µs | 0,010% | OK |
+| **Pixel clock** | 25,176 MHz | 0,005% | Aprovado |
+| H — Visible Area | 25.420,80 ns | 0,005% | Aprovado |
+| H — Front Porch | 635,52 ns | 0,000% | Aprovado |
+| H — Sync Pulse | 3.813,12 ns | 0,000% | Aprovado |
+| H — Back Porch | 1.906,56 ns | 0,000% | Aprovado |
+| V — Visible Area | 15.252,48 µs | 0,006% | Aprovado |
+| V — Front Porch | 317,76 µs | 0,006% | Aprovado |
+| V — Sync Pulse | 1,00 ms | 0,000% | Aprovado |
+| V — Back Porch | 1.048,56 µs | 0,010% | Aprovado |
 
 O desvio máximo observado foi de **0,010%** — significativamente abaixo do limite de 0,5%.
 
@@ -42,13 +42,42 @@ task Teste_vesa_clock;
 endtask
 ```
 
-## Utilização de Recursos
+### Waveforms (Simulação)
 
-```{mermaid}
-pie title Utilização do FPGA EP3C16
-    "Elementos Lógicos livres" : 95
-    "Elementos Lógicos usados" : 5
-```
+Abaixo, os sinais de sincronismo capturados no testbench, demonstrando a geração correta dos pulsos `hsync` e `vsync`, bem como os sinais de cor RGB.
+
+![Waveforms da Simulação](_static/img/waveforms.png)
+
+## Validação Visual (Simulação C++)
+
+Além da verificação temporal, realizamos uma validação funcional do conteúdo gráfico utilizando o simulador C++ (Verilator + SDL2). Esta etapa permitiu confirmar:
+
+1.  **Padrões de Cores:** A geração correta das cores no modo "Quadrado" e "Xadrez".
+2.  **Movimento:** O quadrado móvel rebate corretamente nas bordas da tela (640x480).
+3.  **Interatividade:** A resposta aos botões de troca de modo e cor foi verificada em tempo real.
+
+A simulação em C++ roda a aproximadamente **60 FPS** em um PC convencional, permitindo uma verificação visual impossível de realizar com simuladores de ondas tradicionais (que levariam minutos para renderizar um único frame).
+
+*(Insira aqui o screenshot gerado: `sim/sim_screenshot.bmp`)*
+
+## Validação em Hardware (FPGA)
+
+O sistema foi sintetizado e gravado na placa de desenvolvimento **Altera Cyclone III (EP3C16F484)** para validação final em ambiente real.
+
+### Setup de Teste
+- **FPGA:** Kit de desenvolvimento Cyclone III.
+- **Monitor:** Monitor LCD Dell com entrada VGA nativa.
+- **Conexão:** Cabo VGA padrão conectado à porta D-Sub 15 da placa.
+- **Controles:** 3 botões da placa (Pushbuttons) mapeados para `btn_mode`, `btn_bg` e `btn_sq`.
+
+### Resultados Observados
+1. **Sincronismo:** O monitor detectou instantaneamente o sinal como "640x480 @ 60Hz", confirmando a precisão dos sinais de `HSYNC` e `VSYNC` gerados pelo módulo `vga_sync`. A imagem permaneceu estável, sem tremulações ou perda de sinal.
+2. **Cores:** As cores geradas (RGB 4-4-4) foram exibidas corretamente. O teste do padrão de cores (fundo e quadrado) confirmou a operação correta do DAC resistivo da placa.
+3. **Interatividade:** O sistema respondeu imediatamente aos comandos dos botões, trocando de modo e cores sem *glitches* ou travamentos, validando a lógica de *debounce* e a máquina de estados.
+
+A validação em hardware confirmou que o controlador VGA projetado é robusto e totalmente compatível com monitores comerciais.
+
+## Utilização de Recursos
 
 | Recurso | Disponível | Utilizado | Observação |
 |---|---|---|---|
@@ -75,9 +104,3 @@ pie title Utilização do FPGA EP3C16
 - O sincronismo vertical deve ser contabilizado em **unidades de linhas completas** (múltiplos de 800 pixels), não em ciclos individuais.
 - A reconfiguração do pino `nCEO` (K22) como I/O regular requer configuração explícita nas opções de *Dual-Purpose Pins* do Quartus II.
 - O uso de debounce é essencial em interfaces com botões mecânicos — sem ele, um único pressionamento pode gerar múltiplas transições.
-
-### Trabalhos Futuros
-
-- Implementação de resolução 800×600 ou 1024×768 com PLL reconfigurável
-- Inclusão de caracteres alfanuméricos via ROM de fontes
-- Persistência na flash EPCS4 (atualmente a gravação é feita apenas online via JTAG)

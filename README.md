@@ -15,40 +15,49 @@ This repository contains a Verilog implementation of a VGA controller (640x480 @
     *   `tb_vga_display.v`: Tests pattern generation.
     *   `tb_vga_top.v`: Tests the full integration.
 *   `sim/`: Simulation artifacts and models.
+    *   `sim_sdl.cpp`: C++ simulator using Verilator + SDL2.
     *   `mock_pll.v`: Simulation model for the PLL.
 *   `scripts/`: Utility scripts.
     *   `visualize_waves.py`: Generates waveform plots from VCD files.
+*   `docs/`: Technical documentation (Sphinx).
 
 ## Running Tests
 
+### 1. Verilog Testbench (Waveforms)
+Checks timing and generates VCD files.
+
+```bash
+make test
+make wave
+```
+
+### 2. C++ Visual Simulation (Verilator + SDL2)
+Simulates the VGA output in real-time using a window on your desktop. This is much faster than traditional HDL simulation for checking visual artifacts.
+
+**Prerequisites:**
+```bash
+sudo apt install verilator libsdl2-dev g++
+```
+
+**Run:**
+```bash
+make run
+```
+Controls:
+- `M`: Change Mode
+- `C`: Change Background Color
+- `V`: Change Square Color
+- `ESC`: Quit
+
+A screenshot is automatically saved as `sim_screenshot.bmp` after 1 second.
+
+### 3. Automated Python Tests
 We provide a Python script to automate compiling, running, and visualizing tests.
-
-### Prerequisites
-
-*   `iverilog` (Icarus Verilog)
-*   `python3`
-*   `matplotlib` (Python library for plotting)
-
-### Execution
-
-Run the test runner from this directory:
 
 ```bash
 ./run_tests.py
 ```
-
-This will:
-1.  Compile each testbench using `iverilog`.
-2.  Run the simulation using `vvp`.
-3.  Generate `.vcd` waveform files.
-4.  Plot key signals (HSYNC, VSYNC, RGB) to `.png` images in the `sim/` directory.
-
-### Simulation Output
-
-Check the `sim/` directory for:
-*   `*.vvp`: Compiled simulation executables.
-*   `*.vcd`: Waveform dumps.
-*   `*.png`: Visualized waveforms.
+This generates `.png` plots of the waveforms in `sim/`.
 
 ## Modules
 

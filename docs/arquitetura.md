@@ -6,26 +6,26 @@ A arquitetura foi projetada de forma **modular**, permitindo que cada subsistema
 
 ```{mermaid}
 flowchart TB
-    subgraph TOP["vga_top (Top-Level)"]
+    subgraph TOP["vga_top Top-Level"]
         direction TB
-        PLL["pll<br/>50 MHz → 25.175 MHz"]
-        SYNC["vga_sync<br/>Contadores H/V<br/>HSYNC, VSYNC, blanking"]
-        DISP["vga_display<br/>FSM + Renderização<br/>RGB 12-bit"]
+        PLL["pll 50 MHz to 25.175 MHz"]
+        SYNC["vga_sync Contadores H e V HSYNC VSYNC blanking"]
+        DISP["vga_display FSM e Renderizacao RGB 12-bit"]
     end
 
-    CLK["Clock 50 MHz<br/>(placa)"] --> PLL
+    CLK["Clock 50 MHz Placa"] --> PLL
     PLL -->|pixel_clk| SYNC
     PLL -->|pixel_clk| DISP
 
-    SYNC -->|pixel_x[9:0]| DISP
-    SYNC -->|pixel_y[9:0]| DISP
+    SYNC -->|pixel_x| DISP
+    SYNC -->|pixel_y| DISP
     SYNC -->|display_enable| DISP
 
-    BTN["Botões<br/>(3 pushbuttons)"] --> DISP
+    BTN["Botoes 3 pushbuttons"] --> DISP
 
-    SYNC -->|hsync| VGA["Conector VGA<br/>D-sub 15 pinos"]
+    SYNC -->|hsync| VGA["Conector VGA D-sub 15 pinos"]
     SYNC -->|vsync| VGA
-    DISP -->|R[3:0], G[3:0], B[3:0]| DAC["Rede Resistiva<br/>4-bit DAC"] --> VGA
+    DISP -->|R G B para DAC| DAC["Rede Resistiva 4-bit DAC"] --> VGA
 ```
 
 ## Módulos
