@@ -1,3 +1,5 @@
 sim/*.vcd
 sim/*.vvp
 obj_dir/
+docs/_build/
+docs/.venv/
