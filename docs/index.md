@@ -24,6 +24,7 @@ sincronismo
 exibicao
 simulacao
 rtl_modules
+squads
 resultados
 ```
 
